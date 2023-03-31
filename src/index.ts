@@ -1,3 +1,5 @@
-import { Add } from './Add.js';
+import { NftRollupContract } from './nft_rollup/nft_rollup_contract';
+import { WalletContract } from './wallet/wallet_contract';
+import { TokenContract } from './token/token_contract';
 
-export { Add };
+export { NftRollupContract, WalletContract, TokenContract };
