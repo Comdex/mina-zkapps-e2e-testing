@@ -1,6 +1,70 @@
-# Mina zkApp: E2e
+# Mina zkApps E2E testing: NFT and Custom Token
 
-This template uses TypeScript.
+## NFT POC
+
+### Desciption
+
+This is a simple NFT POC zkApp that allows users to spend a certain amount of custom tokens to mint an NFT from a short phrase, supports minting and transfer of NFTs.
+
+### Surface Areas
+
+1- Recursion
+
+2- Call stack composability
+
+Call the transfer method of the token zkApp to charge the token fee
+
+3- Actions
+
+6- Pre-conditions (network): blockchainLength
+
+7- Permissions
+
+- URI
+
+8- Deploy Smart Contract
+
+### Runtime
+
+local: about 13-18 mins
+
+### Public Key and verification key - Berkeley Deployment
+
+N/A
+
+## Custom Token
+
+### Description
+
+This is a simple custom token zkApp, which supports the basic features of minting, burning and transferring and the function of sales, allowing users to use mina to exchange custom tokens, and lock the mina vault in the contract account.
+
+### Surface Areas
+
+4- Events
+
+5- Pre-conditions (account): nonce
+
+7- Permissions
+
+- URI
+
+- set token symbol
+
+- set timing
+
+- set delegate
+
+8- Deploy Smart Contract
+
+9- Tokens
+
+### Runtime
+
+local: about 5-8 mins
+
+### Public Key and verification key - Berkeley Deployment
+
+N/A
 
 ## How to build
 
@@ -11,8 +75,11 @@ npm run build
 ## How to run tests
 
 ```sh
+# run tests locally
 npm run test
-npm run testw # watch mode
+# run tests on Berkeley, set TEST_ON_BERKELEY=true
+# The tests will automatically deploy zkApps and fund the fee payer account
+npm run test:berkeley
 ```
 
 ## How to run coverage

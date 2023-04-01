@@ -28,6 +28,7 @@ export { NftRollupProver, NftRollupProof, NftRollupProverHelper };
 
 class NFTResult extends Struct({ id: Field, hash: Field }) {}
 
+// calculate the new state given the current state and the action
 function rollupStateTransform(currStateData: {
   currAction: Action;
   currMerkleProof: MerkleProof;
@@ -46,7 +47,7 @@ function rollupStateTransform(currStateData: {
     currentIndex,
     currentNftsCommitment,
   } = currStateData;
-  // compute actions hash
+  // compute new actions hash
   let eventHash = AccountUpdate.SequenceEvents.hash([currAction.toFields()]);
   currentActionsHash = Circuit.if(
     currAction.isDummyData(),
@@ -134,6 +135,7 @@ let NftRollupProver = Experimental.ZkProgram({
         let currentIndex = prevCurrIndex;
         let currentNftsCommitment = prevNftsCommitment;
 
+        // Process each action in the batch
         for (let i = 0, len = ActionBatch.batchSize; i < len; i++) {
           let currAction = actionBatch.actions[i];
           let currMerkleProof = actionBatch.merkleProofs[i];
@@ -225,9 +227,9 @@ let NftRollupProverHelper = {
       let currentNftId = currAction.nft.id;
       let currentNftIdBigInt = currentNftId.toBigInt();
 
+      // Mint
       // compute new current index and root
       if (currAction.isMint().toBoolean()) {
-        // mint
         if (currentIndex < NFT_SUPPLY) {
           currentIndex = currentIndex + 1n;
           //   let currentNftHash = currAction.nft
@@ -244,6 +246,7 @@ let NftRollupProverHelper = {
         }
       }
 
+      // Transfer
       if (currAction.isTransfer().toBoolean()) {
         let nftExist = false;
         let savedNft = await offchainStorage.get(currentNftIdBigInt);

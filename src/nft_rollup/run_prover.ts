@@ -61,7 +61,7 @@ async function runRollupBatchProve(
     zkapp,
     currentState.currentActionsHash
   );
-  console.log('rollup-pendingActions: ', pendingActions);
+  console.log('rollup-pendingActions: ', JSON.stringify(pendingActions));
   if (pendingActions.length === 0) {
     return null;
   }

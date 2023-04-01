@@ -21,7 +21,7 @@ import { NftRollupProver } from './rollup_prover';
 import { fetchActions } from 'snarkyjs/dist/node/lib/fetch';
 import { TokenContract } from '../token/token_contract';
 
-describe('NftRollupContract e2e testing', () => {
+describe('NftRollupContract E2E testing', () => {
   let feePayerKey: PrivateKey;
   let feePayerAddress: PublicKey;
   let callerAKey: PrivateKey;
@@ -167,7 +167,7 @@ describe('NftRollupContract e2e testing', () => {
   });
 
   it(
-    `NftRollup basic functional testing - deployToBerkeley: ${ctx.deployToBerkeley}, proofsEnabled: ${ctx.proofsEnabled}`,
+    `NFT mint, transfer and rollup testing - deployToBerkeley: ${ctx.deployToBerkeley}`,
     async () => {
       //------------deploy contract----------------
       let mintBlock = await deployTokenAndNftContract();
@@ -211,11 +211,12 @@ describe('NftRollupContract e2e testing', () => {
       let callerCAccount = await ctx.getAccount(callerCAddress, tokenId);
       expect(callerCAccount.balance.toBigInt()).toEqual(3n);
 
+      let nftContractTokenBalance = initialFundTokenAmount;
+
       //-----------------mint nft------------------
       // Minting should fail if the current block height is less than mintStartBlockHeight
       await ctx.getNetworkStatus();
       await fetchAllAccounts();
-      let mintErr;
       try {
         let tx = await Mina.transaction(
           {
@@ -234,9 +235,15 @@ describe('NftRollupContract e2e testing', () => {
           logLabel: 'mint nft',
         });
       } catch (err) {
-        mintErr = err;
+        console.log('As Expected, minting should fail: ', err);
       }
-      expect(mintErr).toBeDefined();
+      let nftContractTokenAccount = await ctx.getAccount(
+        nftContractAddress,
+        tokenId
+      );
+      expect(nftContractTokenAccount.balance.toBigInt()).toEqual(
+        nftContractTokenBalance
+      );
 
       // Minting should fail if the caller does not have enough token balance, balance: 3 < fee: 5
       await ctx.getNetworkStatus();
@@ -259,16 +266,22 @@ describe('NftRollupContract e2e testing', () => {
           logLabel: 'mint nft',
         });
       } catch (err) {
-        mintErr = err;
+        console.log('As Expected, minting should fail: ', err);
       }
-      expect(mintErr).toBeDefined();
+      nftContractTokenAccount = await ctx.getAccount(
+        nftContractAddress,
+        tokenId
+      );
+      expect(nftContractTokenAccount.balance.toBigInt()).toEqual(
+        nftContractTokenBalance
+      );
 
       // Minting should succeed if the current block height is greater than or equal to mintStartBlockHeight
       // wait for the block height to be greater than or equal to mintStartBlockHeight
       await ctx.waitForBlock(currentMintStartBlockHeight);
 
       console.log('start mint nfts...');
-      let nftContractTokenBalance = initialFundTokenAmount;
+
       await ctx.getNetworkStatus();
       await fetchAllAccounts();
       let tx2 = await Mina.transaction(
@@ -292,7 +305,7 @@ describe('NftRollupContract e2e testing', () => {
       });
 
       nftContractTokenBalance = nftContractTokenBalance + 10n;
-      let nftContractTokenAccount = await ctx.getAccount(
+      nftContractTokenAccount = await ctx.getAccount(
         nftContractAddress,
         tokenId
       );

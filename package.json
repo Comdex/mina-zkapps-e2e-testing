@@ -20,11 +20,12 @@
     "format": "prettier --write --ignore-unknown **/*",
     "prepare": "husky install",
     "test": "node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js",
+    "test:berkeley": "cross-env TEST_ON_BERKELEY=true npm run test",
     "testw": "node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --watch",
     "lint": "npx eslint src/* --fix",
-    "test:token": "cross-env TEST_ON_BERKELEY=true TEST_PROOFS_ENABLED=true node --stack-trace-limit=1000 --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --findRelatedTests src/token/token_contract.test.ts",
-    "test:nft": "cross-env TEST_ON_BERKELEY=false TEST_PROOFS_ENABLED=true node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --findRelatedTests src/nft_rollup/nft_rollup_contract.test.ts",
-    "play": "tsc -p tsconfig.json && node --stack-trace-limit=1000 --experimental-specifier-resolution=node ./build/src/play.js"
+    "test:token": "cross-env TEST_ON_BERKELEY=false node --stack-trace-limit=1000 --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --findRelatedTests src/token/token_contract.test.ts",
+    "test:nft": "cross-env TEST_ON_BERKELEY=false node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --findRelatedTests src/nft_rollup/nft_rollup_contract.test.ts",
+    "analyze": "tsc -p tsconfig.json && node --stack-trace-limit=1000 --experimental-specifier-resolution=node ./build/src/contract_analyze.js"
   },
   "lint-staged": {
     "**/*": [

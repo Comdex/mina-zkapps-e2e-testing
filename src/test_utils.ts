@@ -19,10 +19,6 @@ const TEST_TIMEOUT = 1000 * 60 * 120;
 const DEFAULT_TX_FEE = 0.01 * MINA;
 const KEYS_DIR = 'keys';
 const KEY_FILE_PREFIX = 'berkeley_';
-// https://berkeley.minascan.io/graphql  https://proxy.berkeley.minaexplorer.com/graphql
-// const MINA_GRAPHQL_URL = 'https://berkeley.minascan.io/graphql';
-// https://archive-node-api.p42.xyz/  https://archive.berkeley.minaexplorer.com/
-// const MINA_ARCHIVE_NODE_URL = 'https://archive-node-api.p42.xyz/';
 
 interface TestContext {
   deployToBerkeley: boolean;
@@ -48,13 +44,26 @@ interface TestContext {
   ): Promise<PrivateKey>;
 }
 
+/**
+ * Generate a test context according to the setting of the current environment variable.
+ * Context contains the method that can be reused both in Berkeley and Local
+ * Support proofsEnabled setting
+ */
 function getTestContext(onlySupportProof = false): TestContext {
-  let deployToBerkeley = process.env.TEST_ON_BERKELEY === 'true' ?? false;
-  let proofsEnabled = process.env.TEST_PROOFS_ENABLED === 'true' ?? true;
+  let deployToBerkeley = false;
+  if (process.env.TEST_ON_BERKELEY === 'true') {
+    deployToBerkeley = true;
+  }
+  let proofsEnabled = true;
+  if (process.env.TEST_PROOFS_ENABLED === 'false') {
+    proofsEnabled = false;
+  }
   if (onlySupportProof) {
     proofsEnabled = true;
   }
 
+  console.log('context-deployToBerkeley: ', deployToBerkeley);
+  console.log('context-proofsEnabled: ', proofsEnabled);
   let getAccount = async (publicKey: PublicKey, tokenId?: Field) => {
     if (deployToBerkeley) {
       await fetchAccount({
@@ -100,6 +109,7 @@ function getTestContext(onlySupportProof = false): TestContext {
     return Mina.activeInstance.getNetworkState();
   };
 
+  // Wait for the next block without specifying the height of the block
   let waitForBlock = async (blockHeight?: UInt32) => {
     let currentBlockHeight =
       Mina.activeInstance.getNetworkState().blockchainLength;
@@ -168,6 +178,11 @@ function getTestContext(onlySupportProof = false): TestContext {
     await txId.wait({ maxAttempts: 1000 });
   };
 
+  /**
+   * First obtain the test account from the local file and check if there is a sufficient balance under berkeley,
+   * otherwise it will be re-generated, funded and saved to save the test waiting time for the next test.
+   * It will be re-generated every time under the local environment.
+   */
   let getFundedAccountForTest = async (
     amountToSpend: bigint,
     keyFileLabel: string

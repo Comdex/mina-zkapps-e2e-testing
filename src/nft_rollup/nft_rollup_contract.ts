@@ -1,6 +1,7 @@
 import { MemoryStore, MerkleTree } from 'snarky-smt';
 import {
   Circuit,
+  CircuitString,
   DeployArgs,
   Field,
   method,
@@ -21,6 +22,8 @@ import { NftRollupProof } from './rollup_prover';
 
 export { NftRollupContract, NFT_INIT_INDEX, NFT_INIT_ACTIONSHASH };
 
+const NFT_NAME = 'MinaGenesis';
+const NFT_SYMBOL = 'MG';
 const NFT_INIT_COMMITMENT = (
   await MerkleTree.build(new MemoryStore<NFT>(), TREE_HEIGHT, NFT)
 ).getRoot();
@@ -64,6 +67,16 @@ class NftRollupContract extends SmartContract {
     });
   }
 
+  name(): CircuitString {
+    return CircuitString.fromString(NFT_NAME);
+  }
+
+  symbol(): CircuitString {
+    return CircuitString.fromString(NFT_SYMBOL);
+  }
+
+  // Start minting a nft after the specified block height
+  // Charge 5 custom tokens for each minting
   @method mint(nft: NFT) {
     nft.isAssignedId().assertFalse();
 
@@ -93,6 +106,7 @@ class NftRollupContract extends SmartContract {
     this.reducer.dispatch(Action.mint(nft));
   }
 
+  // Transfer a nft to another account
   @method transfer(
     receiver: PublicKey,
     nft: NFT,
@@ -110,6 +124,7 @@ class NftRollupContract extends SmartContract {
     this.reducer.dispatch(Action.transfer(newNft, originalNFTHash));
   }
 
+  // Rollup nft txs and update contract state
   @method rollup(proof: NftRollupProof) {
     proof.verify();
 

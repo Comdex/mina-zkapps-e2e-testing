@@ -64,6 +64,7 @@ export class TokenContract extends SmartContract {
     });
   }
 
+  // Minting tokens with admin authorization.
   @method mint(permitWithsign: AdminPermitWithSign) {
     Circuit.log('mint amount: ', permitWithsign.permit.amount);
     let totalAmountInCirculation = this.totalAmountInCirculation.get();
@@ -95,6 +96,7 @@ export class TokenContract extends SmartContract {
     );
   }
 
+  // Burn tokens
   @method burn(receiverAddress: PublicKey, amount: UInt64) {
     Circuit.log('burn amount: ', amount);
     let totalAmountInCirculation = this.totalAmountInCirculation.get();
@@ -117,6 +119,7 @@ export class TokenContract extends SmartContract {
     );
   }
 
+  // Transfer tokens
   @method transfer(
     senderAddress: PublicKey,
     receiverAddress: PublicKey,
@@ -139,6 +142,9 @@ export class TokenContract extends SmartContract {
     );
   }
 
+  // Exchange tokens for mina
+  // The payer pays mina, and the receiver receives a quantity of BASE token equal to tokenAmount.
+  // 1 BASE = 0.01 MINA
   @method exchangeTokensByMina(
     payer: PublicKey,
     receiver: PublicKey,
@@ -156,10 +162,10 @@ export class TokenContract extends SmartContract {
     let newTotalAmountInCirculation = totalAmountInCirculation.add(tokenAmount);
 
     this.token.mint({ address: receiver, amount: tokenAmount });
-
     this.totalAmountInCirculation.set(newTotalAmountInCirculation);
   }
 
+  // Locking mina within thecontract at a specified release time.
   @method setTimeLockedVault(
     amountToLock: UInt64,
     cliffTime: UInt32,
@@ -181,6 +187,7 @@ export class TokenContract extends SmartContract {
     });
   }
 
+  // Update the delegate of the contract by admin's signature
   @method updateDelegate(delegateAddress: PublicKey, adminSign: Signature) {
     adminSign.verify(this.address, delegateAddress.toFields()).assertTrue();
     this.account.delegate.set(delegateAddress);

@@ -20,7 +20,7 @@ import {
 } from './model';
 import { TOKEN_SYMBOL, TokenContract } from './token_contract';
 
-describe('TokenContract e2e testing', () => {
+describe('TokenContract E2E testing', () => {
   const ctx = getTestContext();
 
   async function deployToken(
