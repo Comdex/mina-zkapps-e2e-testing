@@ -81,7 +81,7 @@ describe('TokenContract e2e testing', () => {
   });
 
   it(
-    `Token basic feature test - deployToBerkeley: ${ctx.deployToBerkeley}, proofsEnabled: ${ctx.proofsEnabled}`,
+    `Token basic feature test - deployToBerkeley: ${ctx.deployToBerkeley}`,
     async () => {
       let feePayerKey: PrivateKey;
       let feePayerAddress: PublicKey;
@@ -287,7 +287,7 @@ describe('TokenContract e2e testing', () => {
   );
 
   it(
-    `Exchange tokens, set time-locked vault and update delegate - deployToBerkeley: ${ctx.deployToBerkeley}, proofsEnabled: ${ctx.proofsEnabled}`,
+    `Exchange tokens, set time-locked vault and update delegate - deployToBerkeley: ${ctx.deployToBerkeley}`,
     async () => {
       let feePayerKey: PrivateKey;
       let feePayerAddress: PublicKey;
@@ -417,28 +417,25 @@ describe('TokenContract e2e testing', () => {
 
       //------------update delegate-----------------------
       // When the permission is Permissions.proof(), directly using the signature to update the delegate should fail
-      let updateErr;
-      try {
-        let tx2 = await Mina.transaction(
-          {
-            sender: feePayerAddress,
-            fee: ctx.txFee,
-            memo: 'update delegate',
-          },
-          () => {
-            tokenContract.account.delegate.set(callerAAddress);
-          }
-        );
-        await ctx.submitTx(tx2, {
-          feePayerKey,
-          contractKeys: [tokenContractKey],
-          otherSignKeys: [tokenContractKey],
-          logLabel: 'use signature to update delegate',
-        });
-      } catch (err) {
-        updateErr = err;
-      }
-      expect(updateErr).toBeDefined();
+      let tx3 = await Mina.transaction(
+        {
+          sender: feePayerAddress,
+          fee: ctx.txFee,
+          memo: 'update delegate',
+        },
+        () => {
+          tokenContract.account.delegate.set(callerAAddress);
+        }
+      );
+      await ctx.submitTx(tx3, {
+        feePayerKey,
+        contractKeys: [tokenContractKey],
+        otherSignKeys: [tokenContractKey],
+        logLabel: 'use signature to update delegate',
+      });
+      tokenContractAccount = await ctx.getAccount(tokenContractAddress);
+      // If the delegate of the contract is still itself, it means that the update failed
+      expect(tokenContractAccount.delegate).toEqual(tokenContractAddress);
 
       // Using proof to update the delegate should succeed
       let updateSign = Signature.create(
