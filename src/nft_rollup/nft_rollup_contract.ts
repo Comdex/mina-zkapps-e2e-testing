@@ -63,7 +63,7 @@ class NftRollupContract extends SmartContract {
     this.account.permissions.set({
       ...Permissions.default(),
       editState: Permissions.proof(),
-      editSequenceState: Permissions.proof(),
+      editActionState: Permissions.proof(),
     });
   }
 
@@ -131,7 +131,7 @@ class NftRollupContract extends SmartContract {
     let state = this.state.get();
     this.state.assertEquals(state);
 
-    this.account.sequenceState.assertEquals(
+    this.account.actionState.assertEquals(
       proof.publicInput.target.currentActionsHash
     );
     proof.publicInput.source.assertEquals(state);

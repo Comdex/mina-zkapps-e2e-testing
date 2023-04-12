@@ -48,14 +48,11 @@ function rollupStateTransform(currStateData: {
     currentNftsCommitment,
   } = currStateData;
   // compute new actions hash
-  let eventHash = AccountUpdate.SequenceEvents.hash([currAction.toFields()]);
+  let eventHash = AccountUpdate.Actions.hash([currAction.toFields()]);
   currentActionsHash = Circuit.if(
     currAction.isDummyData(),
     currentActionsHash,
-    AccountUpdate.SequenceEvents.updateSequenceState(
-      currentActionsHash,
-      eventHash
-    )
+    AccountUpdate.Actions.updateSequenceState(currentActionsHash, eventHash)
   );
 
   // process mint
@@ -216,10 +213,8 @@ let NftRollupProverHelper = {
       let currAction = actions[i];
 
       // compute new actions hash
-      let eventHash = AccountUpdate.SequenceEvents.hash([
-        currAction.toFields(),
-      ]);
-      currentActionsHash = AccountUpdate.SequenceEvents.updateSequenceState(
+      let eventHash = AccountUpdate.Actions.hash([currAction.toFields()]);
+      currentActionsHash = AccountUpdate.Actions.updateSequenceState(
         currentActionsHash,
         eventHash
       );
@@ -227,10 +222,11 @@ let NftRollupProverHelper = {
       let currentNftId = currAction.nft.id;
       let currentNftIdBigInt = currentNftId.toBigInt();
 
+      const maxIndex = NFT_SUPPLY - 1;
       // Mint
       // compute new current index and root
       if (currAction.isMint().toBoolean()) {
-        if (currentIndex < NFT_SUPPLY) {
+        if (currentIndex < maxIndex) {
           currentIndex = currentIndex + 1n;
           //   let currentNftHash = currAction.nft
           //     .assignId(Field(currentIndex))

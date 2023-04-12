@@ -28,7 +28,7 @@ interface TestContext {
 
   initMinaNetwork(): Promise<void>;
   getAccount(publicKey: PublicKey, tokenId?: Field): Promise<Types.Account>;
-  getNetworkStatus(): Promise<any>;
+  getNetworkStatus(): Promise<ReturnType<typeof Mina.getNetworkState>>;
   waitForBlock(blockHeight?: UInt32): Promise<void>;
   submitTx(
     tx: Mina.Transaction,
@@ -112,8 +112,8 @@ function getTestContext(onlySupportProof = false): TestContext {
 
   // Wait for the next block without specifying the height of the block
   let waitForBlock = async (blockHeight?: UInt32) => {
-    let currentBlockHeight =
-      Mina.activeInstance.getNetworkState().blockchainLength;
+    await getNetworkStatus();
+    let currentBlockHeight = (await getNetworkStatus()).blockchainLength;
     console.log(`currentBlockHeight: ${currentBlockHeight.toString()}`);
 
     if (blockHeight === undefined) {
@@ -124,8 +124,7 @@ function getTestContext(onlySupportProof = false): TestContext {
     if (deployToBerkeley) {
       // Wait for the specified block height
       for (;;) {
-        await getNetworkStatus();
-
+        currentBlockHeight = (await getNetworkStatus()).blockchainLength;
         if (blockHeight.lessThanOrEqual(currentBlockHeight).toBoolean()) {
           break;
         }
@@ -139,7 +138,9 @@ function getTestContext(onlySupportProof = false): TestContext {
         );
       }
     } else {
-      (Mina.activeInstance as any).setBlockchainLength(blockHeight);
+      (
+        Mina.activeInstance as ReturnType<typeof Mina.LocalBlockchain>
+      ).setBlockchainLength(blockHeight);
     }
 
     console.log(
@@ -204,7 +205,10 @@ function getTestContext(onlySupportProof = false): TestContext {
         );
         fundedAccountBalance = fundedAccount.balance.toBigInt();
       } catch (err) {
-        console.log(err);
+        console.log(
+          'Account not found in the ledger: ',
+          fundedAddress.toBase58()
+        );
       }
 
       if (fundedAccountBalance < amountToSpend) {
@@ -225,10 +229,9 @@ function getTestContext(onlySupportProof = false): TestContext {
       fundedKey = PrivateKey.random();
       fundedAddress = fundedKey.toPublicKey();
       console.log('add fund to local account');
-      (Mina.activeInstance as any).addAccount(
-        fundedAddress,
-        fundMINA.toString()
-      );
+      (
+        Mina.activeInstance as ReturnType<typeof Mina.LocalBlockchain>
+      ).addAccount(fundedAddress, fundMINA.toString());
     }
 
     return fundedKey;

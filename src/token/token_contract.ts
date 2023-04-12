@@ -37,14 +37,17 @@ export class TokenContract extends SmartContract {
   ) {
     super.deploy(args);
     this.account.tokenSymbol.set(TOKEN_SYMBOL);
-    this.totalAmountInCirculation.set(UInt64.zero);
     this.account.zkappUri.set(
       'https://github.com/Comdex/mina-zkapps-e2e-testing'
     );
 
     if (initialFundParams !== undefined && initialFundParams.length > 0) {
+      let totalAmountInCirculation = UInt64.zero;
       initialFundParams.forEach((initialFundParam) => {
         this.token.mint(initialFundParam);
+        totalAmountInCirculation = totalAmountInCirculation.add(
+          initialFundParam.amount
+        );
         this.emitEvent(
           'mint',
           new TokenManageEvent({
@@ -53,6 +56,9 @@ export class TokenContract extends SmartContract {
           })
         );
       });
+      this.totalAmountInCirculation.set(totalAmountInCirculation);
+    } else {
+      this.totalAmountInCirculation.set(UInt64.zero);
     }
     this.account.permissions.set({
       ...Permissions.default(),

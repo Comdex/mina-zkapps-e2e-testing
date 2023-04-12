@@ -1,6 +1,5 @@
 import { MerkleTree } from 'snarky-smt';
-import { Field } from 'snarkyjs';
-import { fetchActions } from 'snarkyjs/dist/node/lib/fetch';
+import { Field, Reducer } from 'snarkyjs';
 import { Action, NFT, RollupState, ActionBatch } from './model';
 import { NftRollupContract } from './nft_rollup_contract';
 import {
@@ -11,14 +10,14 @@ import {
 
 export { getPendingActions, runRollupBatchProve };
 
-function getPendingActions(
+async function getPendingActions(
   zkapp: NftRollupContract,
   fromActionHash: Field,
   endActionHash?: Field
-): Action[] {
-  let pendingActions = zkapp.reducer.getActions({
-    fromActionHash,
-    endActionHash,
+): Promise<Action[]> {
+  let pendingActions = await zkapp.reducer.fetchActions({
+    fromActionState: fromActionHash,
+    endActionState: endActionHash,
   });
   let actions: Action[] = [];
 
@@ -54,13 +53,27 @@ async function runRollupBatchProve(
     `rollup-current state - currentActionsHash: ${currentState.currentActionsHash}, currentIndex: ${currentState.currentIndex}, nftsCommitment: ${currentState.nftsCommitment}`
   );
 
+  let pendingActions: Action[] = [];
   if (deployToBerkeley) {
-    await fetchActions({ publicKey: zkapp.address.toBase58() });
+    pendingActions = await getPendingActions(
+      zkapp,
+      currentState.currentActionsHash
+    );
+
+    if (
+      !currentState.currentActionsHash
+        .equals(Reducer.initialActionsHash)
+        .toBoolean()
+    ) {
+      pendingActions = pendingActions.slice(1);
+    }
+  } else {
+    pendingActions = await getPendingActions(
+      zkapp,
+      currentState.currentActionsHash
+    );
   }
-  let pendingActions = getPendingActions(
-    zkapp,
-    currentState.currentActionsHash
-  );
+
   console.log('rollup-pendingActions: ', JSON.stringify(pendingActions));
   if (pendingActions.length === 0) {
     return null;

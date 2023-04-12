@@ -3,7 +3,6 @@ import { MemoryStore, MerkleTree } from 'snarky-smt';
 import {
   AccountUpdate,
   Field,
-  isReady,
   Mina,
   PrivateKey,
   PublicKey,
@@ -19,7 +18,6 @@ import { Action, NFT, SignatureWithSigner } from './model';
 import { NftRollupContract } from './nft_rollup_contract';
 import { runRollupBatchProve } from './run_prover';
 import { NftRollupProver } from './rollup_prover';
-import { fetchActions } from 'snarkyjs/dist/node/lib/fetch';
 import { TokenContract } from '../token/token_contract';
 
 describe('NftRollupContract E2E testing', () => {
@@ -87,8 +85,7 @@ describe('NftRollupContract E2E testing', () => {
 
   async function deployTokenAndNftContract(): Promise<UInt32> {
     console.log('deploying token contract and nft rollup contract...');
-    let currentBlockHeight = (await ctx.getNetworkStatus())
-      .blockchainLength as UInt32;
+    let currentBlockHeight = (await ctx.getNetworkStatus()).blockchainLength;
 
     let mintStartBlockHeight = currentBlockHeight.add(3);
     let tx = await Mina.transaction(
@@ -133,7 +130,8 @@ describe('NftRollupContract E2E testing', () => {
   }
 
   beforeAll(async () => {
-    await isReady;
+    await ctx.initMinaNetwork();
+    await setupAccounts();
 
     console.log('start compiling TokenpContract...');
     console.time('TokenContract compile');
@@ -158,9 +156,6 @@ describe('NftRollupContract E2E testing', () => {
       'NftRollupContract VerificationKey: ',
       JSON.stringify(nftVerificationKey)
     );
-
-    await ctx.initMinaNetwork();
-    await setupAccounts();
   }, TEST_TIMEOUT);
 
   afterAll(() => {
@@ -200,7 +195,7 @@ describe('NftRollupContract E2E testing', () => {
       expect(nftContractAccount.permissions.editState).toEqual(
         Permissions.proof()
       );
-      expect(nftContractAccount.permissions.editSequenceState).toEqual(
+      expect(nftContractAccount.permissions.editActionState).toEqual(
         Permissions.proof()
       );
 
@@ -282,19 +277,35 @@ describe('NftRollupContract E2E testing', () => {
       await ctx.waitForBlock(currentMintStartBlockHeight);
 
       console.log('start mint nfts...');
-
+      // mint nft 1
       await ctx.getNetworkStatus();
       await fetchAllAccounts();
       let tx2 = await Mina.transaction(
         {
           sender: feePayerAddress,
           fee: ctx.txFee,
-          memo: 'Mint nfts batch 1',
+          memo: 'Mint nft 1',
         },
         () => {
-          // The current NFT contract address does not have a token account, so a creation fee needs to be paid
-          // AccountUpdate.fundNewAccount(feePayerAddress, 1);
           nftContract.mint(NFT.createNFT('Mina Test NFT 1', callerAAddress));
+        }
+      );
+      await ctx.submitTx(tx2, {
+        feePayerKey,
+        contractKeys: [nftContractKey],
+        otherSignKeys: [callerAKey],
+        logLabel: 'mint nft 1',
+      });
+      // mint nft 2
+      await ctx.getNetworkStatus();
+      await fetchAllAccounts();
+      tx2 = await Mina.transaction(
+        {
+          sender: feePayerAddress,
+          fee: ctx.txFee,
+          memo: 'Mint nft 2',
+        },
+        () => {
           nftContract.mint(NFT.createNFT('Mina Test NFT 2', callerAAddress));
         }
       );
@@ -302,7 +313,7 @@ describe('NftRollupContract E2E testing', () => {
         feePayerKey,
         contractKeys: [nftContractKey],
         otherSignKeys: [callerAKey],
-        logLabel: 'mint nfts batch 1',
+        logLabel: 'mint nft 2',
       });
 
       nftContractTokenBalance = nftContractTokenBalance + 10n;
@@ -314,17 +325,33 @@ describe('NftRollupContract E2E testing', () => {
         nftContractTokenBalance
       );
 
-      // Mint nft batch 2
+      // mint nft 3
       await ctx.getNetworkStatus();
       await fetchAllAccounts();
       let tx3 = await Mina.transaction(
         {
           sender: feePayerAddress,
           fee: ctx.txFee,
-          memo: 'Minting nfts batch 2',
+          memo: 'Mint nft 3',
         },
         () => {
           nftContract.mint(NFT.createNFT('Mina Test NFT 3', callerAAddress));
+        }
+      );
+      await ctx.submitTx(tx3, {
+        feePayerKey,
+        contractKeys: [nftContractKey],
+        otherSignKeys: [callerAKey],
+        logLabel: 'mint nft 3',
+      });
+      // Mint nft 4
+      tx3 = await Mina.transaction(
+        {
+          sender: feePayerAddress,
+          fee: ctx.txFee,
+          memo: 'Mint nft 4',
+        },
+        () => {
           nftContract.mint(NFT.createNFT('Mina Test NFT 4', callerAAddress));
         }
       );
@@ -332,7 +359,7 @@ describe('NftRollupContract E2E testing', () => {
         feePayerKey,
         contractKeys: [nftContractKey],
         otherSignKeys: [callerAKey],
-        logLabel: 'mint nfts batch 2',
+        logLabel: 'mint nft 4',
       });
 
       nftContractTokenBalance = nftContractTokenBalance + 10n;
@@ -345,10 +372,10 @@ describe('NftRollupContract E2E testing', () => {
       );
 
       //-----------------rollup mint txs------------------
+      console.log('start rollup mint txs...');
+      await ctx.waitForBlock();
       let mergedProof = await runRollupBatchProve(
         nftContract,
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
         offchainStorage,
         ctx.deployToBerkeley
       );
@@ -374,6 +401,7 @@ describe('NftRollupContract E2E testing', () => {
       expect(currState).toEqual(mergedProof?.publicInput.target);
 
       //-----------------transfer nft------------------
+      console.log('start transfer nfts...');
       let nft1 = await offchainStorage.get(1n);
       let sign1 = SignatureWithSigner.create(
         callerAKey,
@@ -384,32 +412,57 @@ describe('NftRollupContract E2E testing', () => {
         callerAKey,
         callerBAddress.toFields().concat(NFT.toFields(nft2!))
       );
+
       let tx5 = await Mina.transaction(
         {
           sender: feePayerAddress,
           fee: ctx.txFee,
-          memo: 'Transfer nfts batch',
+          memo: 'Transfer nft 1',
         },
         () => {
           nftContract.transfer(callerBAddress, nft1!, sign1);
+        }
+      );
+      await ctx.submitTx(tx5, {
+        feePayerKey,
+        contractKeys: [nftContractKey],
+        logLabel: 'transfer nft 1',
+      });
+
+      tx5 = await Mina.transaction(
+        {
+          sender: feePayerAddress,
+          fee: ctx.txFee,
+          memo: 'Transfer nft 2',
+        },
+        () => {
           nftContract.transfer(callerBAddress, nft2!, sign2);
         }
       );
       await ctx.submitTx(tx5, {
         feePayerKey,
         contractKeys: [nftContractKey],
-        logLabel: 'transfer nfts batch',
+        logLabel: 'transfer nft 2',
       });
 
       if (ctx.deployToBerkeley) {
-        await fetchActions({
-          publicKey: nftContractAddress.toBase58(),
-        });
+        // In order to ensure that the latest actions can be obtained, it is necessary to wait for a block
+        await ctx.waitForBlock();
       }
-      let actions = nftContract.reducer.getActions({
-        fromActionHash: Reducer.initialActionsHash,
+      let actions = await nftContract.reducer.fetchActions({
+        fromActionState: Reducer.initialActionsHash,
       });
       expect(actions.length).toEqual(6);
+      // Check the correctness of the transfer actions
+      const originalNFTHash1 = nft1?.hash();
+      const newNft1 = nft1?.changeOwner(callerBAddress);
+      const transferAction1 = Action.transfer(newNft1!, originalNFTHash1!);
+      expect(actions[4][0]).toEqual(transferAction1);
+
+      const originalNFTHash2 = nft2?.hash();
+      const newNft2 = nft2?.changeOwner(callerBAddress);
+      const transferAction2 = Action.transfer(newNft2!, originalNFTHash2!);
+      expect(actions[5][0]).toEqual(transferAction2);
 
       // Test transfer transaction and mint transaction mixed rollup
       await ctx.getNetworkStatus();
@@ -419,7 +472,7 @@ describe('NftRollupContract E2E testing', () => {
         {
           sender: feePayerAddress,
           fee: ctx.txFee,
-          memo: 'Minting nft',
+          memo: 'Mint nft 5',
         },
         () => {
           nftContract.mint(mintNft);
@@ -429,24 +482,24 @@ describe('NftRollupContract E2E testing', () => {
         feePayerKey,
         contractKeys: [nftContractKey],
         otherSignKeys: [callerBKey],
-        logLabel: 'mint nft',
+        logLabel: 'mint nft 5',
       });
 
       if (ctx.deployToBerkeley) {
-        await fetchActions({ publicKey: nftContractAddress.toBase58() });
+        await ctx.waitForBlock();
       }
-      let actions4 = nftContract.reducer.getActions({
-        fromActionHash: Reducer.initialActionsHash,
+      let actions4 = await nftContract.reducer.fetchActions({
+        fromActionState: Reducer.initialActionsHash,
       });
       expect(actions4.length).toEqual(7);
-      // Check the correctness of the action
+      // Check the correctness of the mint action
       expect(actions4[6][0]).toEqual(Action.mint(mintNft));
 
       //-----------------rollup transfer and mint txs------------------
+      console.log('start rollup transfer and mint txs...');
+      await ctx.waitForBlock();
       let mergedProof2 = await runRollupBatchProve(
         nftContract,
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
         offchainStorage,
         ctx.deployToBerkeley
       );

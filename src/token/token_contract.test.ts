@@ -6,7 +6,6 @@ import {
   PublicKey,
   UInt64,
   Permissions,
-  isReady,
   shutdown,
   Signature,
   Bool,
@@ -59,7 +58,7 @@ describe('TokenContract E2E testing', () => {
   }
 
   beforeAll(async () => {
-    await isReady;
+    await ctx.initMinaNetwork();
 
     if (ctx.proofsEnabled) {
       console.log('start compiling contract...');
@@ -73,11 +72,10 @@ describe('TokenContract E2E testing', () => {
         JSON.stringify(tokenVerificationKey)
       );
     }
-    await ctx.initMinaNetwork();
   }, TEST_TIMEOUT);
 
   afterAll(() => {
-    setInterval(shutdown, 0);
+    setInterval(shutdown, 1000);
   });
 
   it(
@@ -155,6 +153,10 @@ describe('TokenContract E2E testing', () => {
       expect(tokenContractAccount.permissions.setDelegate).toEqual(
         Permissions.proof()
       );
+      let totalAmountInCirculation = tokenContract.totalAmountInCirculation
+        .get()
+        .toBigInt();
+      expect(totalAmountInCirculation).toEqual(initialFundTokenAmount);
 
       let callerCAccount = await ctx.getAccount(callerCAddress, tokenId);
       expect(callerCAccount.balance.toBigInt()).toEqual(initialFundTokenAmount);
@@ -190,9 +192,17 @@ describe('TokenContract E2E testing', () => {
 
       let callerA = await ctx.getAccount(callerAAddress, tokenId);
       expect(callerA.balance.toBigInt()).toEqual(tokenMintAmount);
+      await ctx.getAccount(tokenContractAddress);
+      let totalAmountInCirculationAfterMint =
+        tokenContract.totalAmountInCirculation.get();
+      totalAmountInCirculation = totalAmountInCirculation + tokenMintAmount;
+      expect(totalAmountInCirculationAfterMint.toBigInt()).toEqual(
+        totalAmountInCirculation
+      );
 
       //------------Burn tokens-----------------------
       // Burning tokens should succeed
+      await ctx.getAccount(tokenContractAddress);
       const tokenBurnAmount = 5000n;
       console.log('burning tokens...');
       tx = await Mina.transaction(
@@ -216,8 +226,16 @@ describe('TokenContract E2E testing', () => {
       expect(callerAAccount.balance.toBigInt()).toEqual(
         tokenMintAmount - tokenBurnAmount
       );
+      await ctx.getAccount(tokenContractAddress);
+      let totalAmountInCirculationAfterBurn =
+        tokenContract.totalAmountInCirculation.get();
+      totalAmountInCirculation = totalAmountInCirculation - tokenBurnAmount;
+      expect(totalAmountInCirculationAfterBurn.toBigInt()).toEqual(
+        totalAmountInCirculation
+      );
 
       //------------Transfer tokens-----------------------
+      await ctx.getAccount(tokenContractAddress);
       const tokenTransferAmount = 50n;
       tx = await Mina.transaction(
         {
@@ -245,41 +263,41 @@ describe('TokenContract E2E testing', () => {
       let callerBAccount = await ctx.getAccount(callerBAddress, tokenId);
       expect(callerBAccount.balance.toBigInt()).toEqual(tokenTransferAmount);
 
-      //-----------------check events-------------------
-      let events = await tokenContract.fetchEvents();
-      console.log('events', events);
-      expect(events.length).toEqual(4);
-
       // wait for next block
       // In order to prevent factors such as network delay and node processing delay, wait for a block before getting events
       await ctx.waitForBlock();
 
-      expect(events[0].event).toEqual(
-        new TokenManageEvent({
-          receiver: initialFundAddress,
-          amount: UInt64.from(initialFundTokenAmount),
+      //-----------------check events-------------------
+      let events = await tokenContract.fetchEvents();
+      console.log('events', JSON.stringify(events));
+      expect(events.length).toEqual(4);
+
+      expect(events[0].event.data).toEqual(
+        new TokenTransferEvent({
+          sender: callerAAddress,
+          receiver: callerBAddress,
+          amount: UInt64.from(tokenTransferAmount),
         })
       );
 
-      expect(events[1].event).toEqual(
-        new TokenManageEvent({
-          receiver: callerAAddress,
-          amount: UInt64.from(tokenMintAmount),
-        })
-      );
-
-      expect(events[2].event).toEqual(
+      expect(events[1].event.data).toEqual(
         new TokenManageEvent({
           receiver: callerAAddress,
           amount: UInt64.from(tokenBurnAmount),
         })
       );
 
-      expect(events[3].event).toEqual(
-        new TokenTransferEvent({
-          sender: callerAAddress,
-          receiver: callerBAddress,
-          amount: UInt64.from(tokenTransferAmount),
+      expect(events[2].event.data).toEqual(
+        new TokenManageEvent({
+          receiver: callerAAddress,
+          amount: UInt64.from(tokenMintAmount),
+        })
+      );
+
+      expect(events[3].event.data).toEqual(
+        new TokenManageEvent({
+          receiver: initialFundAddress,
+          amount: UInt64.from(initialFundTokenAmount),
         })
       );
     },
@@ -322,11 +340,11 @@ describe('TokenContract E2E testing', () => {
       console.log('tokenId: ', tokenId.toString());
 
       console.log(`Use the following addresses to test:
-  feePayer: ${feePayerAddress.toBase58()}
-  token contract: ${tokenContractAddress.toBase58()}
-  callerA: ${callerAAddress.toBase58()}
-  callerB: ${callerBAddress.toBase58()}
-  callerC: ${callerCAddress.toBase58()}`);
+      feePayer: ${feePayerAddress.toBase58()}
+      token contract: ${tokenContractAddress.toBase58()}
+      callerA: ${callerAAddress.toBase58()}
+      callerB: ${callerBAddress.toBase58()}
+      callerC: ${callerCAddress.toBase58()}`);
 
       //------------Deploy contracts-------------
       let initialFundTokenAmount = 1000n;
@@ -352,6 +370,9 @@ describe('TokenContract E2E testing', () => {
       const exchangeTokenAmount = 300n;
       const minaToSpend = BigInt(3 * MINA);
       console.log('exchange tokens by mina...');
+      await ctx.getAccount(tokenContractAddress);
+      await ctx.getAccount(feePayerAddress);
+      await ctx.getAccount(callerCAddress, tokenId);
       let tx = await Mina.transaction(
         {
           sender: feePayerAddress,
@@ -381,6 +402,7 @@ describe('TokenContract E2E testing', () => {
       );
 
       //------------set time-locked vault-----------------------
+      await ctx.getAccount(tokenContractAddress);
       let globalSlotSinceGenesis = (await ctx.getNetworkStatus())
         .globalSlotSinceGenesis;
       let amountToLock = UInt64.from(minaToSpend);
