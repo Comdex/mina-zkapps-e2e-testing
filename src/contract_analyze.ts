@@ -8,11 +8,11 @@ async function run() {
   console.log('start...');
   let result = NftRollupContract.analyzeMethods();
   console.log('analyze nftContract: ', JSON.stringify(result));
-  await NftRollupContract.compile();
+  //await NftRollupContract.compile();
 
   let result2 = TokenContract.analyzeMethods();
   console.log('analyze tokenContract: ', JSON.stringify(result2));
-  await TokenContract.compile();
+  //await TokenContract.compile();
   console.log('end');
 
   shutdown();

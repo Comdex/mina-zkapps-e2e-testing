@@ -1,5 +1,5 @@
 import { MerkleTree } from 'snarky-smt';
-import { Field, Reducer } from 'snarkyjs';
+import { Field } from 'snarkyjs';
 import { Action, NFT, RollupState, ActionBatch } from './model';
 import { NftRollupContract } from './nft_rollup_contract';
 import {
@@ -53,26 +53,10 @@ async function runRollupBatchProve(
     `rollup-current state - currentActionsHash: ${currentState.currentActionsHash}, currentIndex: ${currentState.currentIndex}, nftsCommitment: ${currentState.nftsCommitment}`
   );
 
-  let pendingActions: Action[] = [];
-  if (deployToBerkeley) {
-    pendingActions = await getPendingActions(
-      zkapp,
-      currentState.currentActionsHash
-    );
-
-    if (
-      !currentState.currentActionsHash
-        .equals(Reducer.initialActionsHash)
-        .toBoolean()
-    ) {
-      pendingActions = pendingActions.slice(1);
-    }
-  } else {
-    pendingActions = await getPendingActions(
-      zkapp,
-      currentState.currentActionsHash
-    );
-  }
+  let pendingActions = await getPendingActions(
+    zkapp,
+    currentState.currentActionsHash
+  );
 
   console.log('rollup-pendingActions: ', JSON.stringify(pendingActions));
   if (pendingActions.length === 0) {

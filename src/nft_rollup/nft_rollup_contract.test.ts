@@ -74,15 +74,6 @@ describe('NftRollupContract E2E testing', () => {
   callerB: ${callerBAddress.toBase58()}`);
   }
 
-  async function fetchAllAccounts(): Promise<void> {
-    console.log('fetching all accounts...');
-    await ctx.getAccount(tokenContractAddress);
-    await ctx.getAccount(nftContractAddress);
-    await ctx.getAccount(callerAAddress, tokenId);
-    await ctx.getAccount(callerBAddress, tokenId);
-    await ctx.getAccount(callerCAddress, tokenId);
-  }
-
   async function deployTokenAndNftContract(): Promise<UInt32> {
     console.log('deploying token contract and nft rollup contract...');
     let currentBlockHeight = (await ctx.getNetworkStatus()).blockchainLength;
@@ -211,8 +202,6 @@ describe('NftRollupContract E2E testing', () => {
 
       //-----------------mint nft------------------
       // Minting should fail if the current block height is less than mintStartBlockHeight
-      await ctx.getNetworkStatus();
-      await fetchAllAccounts();
       try {
         let tx = await Mina.transaction(
           {
@@ -242,8 +231,6 @@ describe('NftRollupContract E2E testing', () => {
       );
 
       // Minting should fail if the caller does not have enough token balance, balance: 3 < fee: 5
-      await ctx.getNetworkStatus();
-      await fetchAllAccounts();
       try {
         let tx = await Mina.transaction(
           {
@@ -278,8 +265,6 @@ describe('NftRollupContract E2E testing', () => {
 
       console.log('start mint nfts...');
       // mint nft 1
-      await ctx.getNetworkStatus();
-      await fetchAllAccounts();
       let tx2 = await Mina.transaction(
         {
           sender: feePayerAddress,
@@ -297,8 +282,6 @@ describe('NftRollupContract E2E testing', () => {
         logLabel: 'mint nft 1',
       });
       // mint nft 2
-      await ctx.getNetworkStatus();
-      await fetchAllAccounts();
       tx2 = await Mina.transaction(
         {
           sender: feePayerAddress,
@@ -326,8 +309,6 @@ describe('NftRollupContract E2E testing', () => {
       );
 
       // mint nft 3
-      await ctx.getNetworkStatus();
-      await fetchAllAccounts();
       let tx3 = await Mina.transaction(
         {
           sender: feePayerAddress,
@@ -374,6 +355,7 @@ describe('NftRollupContract E2E testing', () => {
       //-----------------rollup mint txs------------------
       console.log('start rollup mint txs...');
       await ctx.waitForBlock();
+      await ctx.waitForBlock();
       let mergedProof = await runRollupBatchProve(
         nftContract,
         offchainStorage,
@@ -396,7 +378,9 @@ describe('NftRollupContract E2E testing', () => {
         logLabel: 'rollup mint txs',
       });
 
-      await ctx.getAccount(nftContractAddress);
+      if (ctx.deployToBerkeley) {
+        await ctx.getAccount(nftContractAddress);
+      }
       let currState = nftContract.state.get();
       expect(currState).toEqual(mergedProof?.publicInput.target);
 
@@ -445,10 +429,9 @@ describe('NftRollupContract E2E testing', () => {
         logLabel: 'transfer nft 2',
       });
 
-      if (ctx.deployToBerkeley) {
-        // In order to ensure that the latest actions can be obtained, it is necessary to wait for a block
-        await ctx.waitForBlock();
-      }
+      // In order to ensure that the latest actions can be obtained, try to wait for 2 blocks
+      await ctx.waitForBlock();
+      await ctx.waitForBlock();
       let actions = await nftContract.reducer.fetchActions({
         fromActionState: Reducer.initialActionsHash,
       });
@@ -465,8 +448,6 @@ describe('NftRollupContract E2E testing', () => {
       expect(actions[5][0]).toEqual(transferAction2);
 
       // Test transfer transaction and mint transaction mixed rollup
-      await ctx.getNetworkStatus();
-      await fetchAllAccounts();
       let mintNft = NFT.createNFT('Mina Test NFT 5', callerBAddress);
       let tx6 = await Mina.transaction(
         {
@@ -485,9 +466,8 @@ describe('NftRollupContract E2E testing', () => {
         logLabel: 'mint nft 5',
       });
 
-      if (ctx.deployToBerkeley) {
-        await ctx.waitForBlock();
-      }
+      await ctx.waitForBlock();
+      await ctx.waitForBlock();
       let actions4 = await nftContract.reducer.fetchActions({
         fromActionState: Reducer.initialActionsHash,
       });
@@ -498,12 +478,12 @@ describe('NftRollupContract E2E testing', () => {
       //-----------------rollup transfer and mint txs------------------
       console.log('start rollup transfer and mint txs...');
       await ctx.waitForBlock();
+      await ctx.waitForBlock();
       let mergedProof2 = await runRollupBatchProve(
         nftContract,
         offchainStorage,
         ctx.deployToBerkeley
       );
-      await ctx.getAccount(nftContractAddress);
       let tx7 = await Mina.transaction(
         {
           sender: feePayerAddress,
@@ -520,7 +500,9 @@ describe('NftRollupContract E2E testing', () => {
         logLabel: 'rollup transfer and mint txs',
       });
 
-      await ctx.getAccount(nftContractAddress);
+      if (ctx.deployToBerkeley) {
+        await ctx.getAccount(nftContractAddress);
+      }
       let currState2 = nftContract.state.get();
       expect(currState2).toEqual(mergedProof2?.publicInput.target);
     },
