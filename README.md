@@ -26,11 +26,14 @@ Call the transfer method of the token zkApp to charge the token fee
 
 ### Runtime
 
-local: about 13-18 mins
+berkeley: about 120 mins
+local: about 35 mins
 
 ### Public Key and verification key - Berkeley Deployment
 
-N/A
+public key: B62qpogUmvYSBEPGmMkavvVu8xPX342PvcQJWvyXqNUfpPEysqqie4s
+
+verification key: [nft_contract_verification_key.json](./nft_contract_verification_key.json)
 
 ## Custom Token
 
@@ -60,11 +63,18 @@ This is a simple custom token zkApp, which supports the basic features of mintin
 
 ### Runtime
 
-local: about 5-8 mins
+berkeley: about 110 mins
+local: about 20 mins
 
 ### Public Key and verification key - Berkeley Deployment
 
-N/A
+public key:
+
+B62qqCHZWiCZowNtjRUdXKa9Acf23FxLYaNMcejx2cvskwy6EDNzqLi
+
+B62qjXcrwSw6ABGdz2GXh6PgTqCH5SJBPA8gJLRcTLowEZep7ZnejJt
+
+verification key: [token_contract_verification_key.json](./token_contract_verification_key.json)
 
 ## How to build
 
