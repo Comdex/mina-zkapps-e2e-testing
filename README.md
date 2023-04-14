@@ -35,6 +35,8 @@ public key: B62qpogUmvYSBEPGmMkavvVu8xPX342PvcQJWvyXqNUfpPEysqqie4s
 
 verification key: [nft_contract_verification_key.json](./nft_contract_verification_key.json)
 
+---
+
 ## Custom Token
 
 ### Description
@@ -75,6 +77,8 @@ B62qqCHZWiCZowNtjRUdXKa9Acf23FxLYaNMcejx2cvskwy6EDNzqLi
 B62qjXcrwSw6ABGdz2GXh6PgTqCH5SJBPA8gJLRcTLowEZep7ZnejJt
 
 verification key: [token_contract_verification_key.json](./token_contract_verification_key.json)
+
+---
 
 ## How to build
 
