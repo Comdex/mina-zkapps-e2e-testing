@@ -10,6 +10,8 @@ import {
   Signature,
   Bool,
   UInt32,
+  Circuit,
+  Poseidon,
 } from 'snarkyjs';
 import { getTestContext, MINA, TEST_TIMEOUT } from '../test_utils';
 import {
@@ -161,6 +163,24 @@ describe('TokenContract E2E testing', () => {
       let callerCAccount = await ctx.getAccount(callerCAddress, tokenId);
       expect(callerCAccount.balance.toBigInt()).toEqual(initialFundTokenAmount);
 
+      // In order to ensure that events can be obtained, try to wait for 2 blocks
+      await ctx.waitForBlock();
+      await ctx.waitForBlock();
+      let events = await tokenContract.fetchEvents();
+      console.log('after deploy - events: ', JSON.stringify(events));
+      expect(events.length).toEqual(1);
+
+      expect(
+        events.filter((e) => {
+          return e.type === 'mint';
+        })[0].event.data
+      ).toEqual(
+        new TokenManageEvent({
+          receiver: initialFundAddress,
+          amount: UInt64.from(initialFundTokenAmount),
+        })
+      );
+
       //------------Mint tokens-----------------------
       // Minting tokens should succeed
       const tokenMintAmount = 10000n;
@@ -192,17 +212,42 @@ describe('TokenContract E2E testing', () => {
 
       let callerA = await ctx.getAccount(callerAAddress, tokenId);
       expect(callerA.balance.toBigInt()).toEqual(tokenMintAmount);
-      await ctx.getAccount(tokenContractAddress);
+
+      if (ctx.deployToBerkeley) {
+        await ctx.getAccount(tokenContractAddress);
+      }
       let totalAmountInCirculationAfterMint =
         tokenContract.totalAmountInCirculation.get();
       totalAmountInCirculation = totalAmountInCirculation + tokenMintAmount;
-      expect(totalAmountInCirculationAfterMint.toBigInt()).toEqual(
+      expect(totalAmountInCirculationAfterMint?.toBigInt()).toEqual(
         totalAmountInCirculation
       );
 
+      await ctx.waitForBlock();
+      await ctx.waitForBlock();
+      events = await tokenContract.fetchEvents();
+      console.log('after mint - events: ', JSON.stringify(events));
+      expect(events.length).toEqual(2);
+
+      expect(
+        events.filter((e) => {
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          const eHash = Poseidon.hash(TokenManageEvent.toFields(e.event.data));
+          const expectedHash = Poseidon.hash(
+            TokenManageEvent.toFields(
+              new TokenManageEvent({
+                receiver: callerAAddress,
+                amount: UInt64.from(tokenMintAmount),
+              })
+            )
+          );
+          return e.type === 'mint' && eHash.equals(expectedHash).toBoolean();
+        })
+      ).toHaveLength(1);
+
       //------------Burn tokens-----------------------
       // Burning tokens should succeed
-      await ctx.getAccount(tokenContractAddress);
       const tokenBurnAmount = 5000n;
       console.log('burning tokens...');
       tx = await Mina.transaction(
@@ -226,16 +271,35 @@ describe('TokenContract E2E testing', () => {
       expect(callerAAccount.balance.toBigInt()).toEqual(
         tokenMintAmount - tokenBurnAmount
       );
-      await ctx.getAccount(tokenContractAddress);
+
+      if (ctx.deployToBerkeley) {
+        await ctx.getAccount(tokenContractAddress);
+      }
       let totalAmountInCirculationAfterBurn =
         tokenContract.totalAmountInCirculation.get();
       totalAmountInCirculation = totalAmountInCirculation - tokenBurnAmount;
-      expect(totalAmountInCirculationAfterBurn.toBigInt()).toEqual(
+      expect(totalAmountInCirculationAfterBurn?.toBigInt()).toEqual(
         totalAmountInCirculation
       );
 
+      await ctx.waitForBlock();
+      await ctx.waitForBlock();
+      events = await tokenContract.fetchEvents();
+      console.log('after burn - events: ', JSON.stringify(events));
+      expect(events.length).toEqual(3);
+
+      expect(
+        events.filter((e) => {
+          return e.type === 'burn';
+        })[0].event.data
+      ).toEqual(
+        new TokenManageEvent({
+          receiver: callerAAddress,
+          amount: UInt64.from(tokenBurnAmount),
+        })
+      );
+
       //------------Transfer tokens-----------------------
-      await ctx.getAccount(tokenContractAddress);
       const tokenTransferAmount = 50n;
       tx = await Mina.transaction(
         {
@@ -263,41 +327,21 @@ describe('TokenContract E2E testing', () => {
       let callerBAccount = await ctx.getAccount(callerBAddress, tokenId);
       expect(callerBAccount.balance.toBigInt()).toEqual(tokenTransferAmount);
 
-      // wait for next block
-      // In order to prevent factors such as network delay and node processing delay, wait for a block before getting events
       await ctx.waitForBlock();
-
-      //-----------------check events-------------------
-      let events = await tokenContract.fetchEvents();
-      console.log('events', JSON.stringify(events));
+      await ctx.waitForBlock();
+      events = await tokenContract.fetchEvents();
+      console.log('after transfer - events: ', JSON.stringify(events));
       expect(events.length).toEqual(4);
 
-      expect(events[0].event.data).toEqual(
+      expect(
+        events.filter((e) => {
+          return e.type === 'transfer';
+        })[0].event.data
+      ).toEqual(
         new TokenTransferEvent({
           sender: callerAAddress,
           receiver: callerBAddress,
           amount: UInt64.from(tokenTransferAmount),
-        })
-      );
-
-      expect(events[1].event.data).toEqual(
-        new TokenManageEvent({
-          receiver: callerAAddress,
-          amount: UInt64.from(tokenBurnAmount),
-        })
-      );
-
-      expect(events[2].event.data).toEqual(
-        new TokenManageEvent({
-          receiver: callerAAddress,
-          amount: UInt64.from(tokenMintAmount),
-        })
-      );
-
-      expect(events[3].event.data).toEqual(
-        new TokenManageEvent({
-          receiver: initialFundAddress,
-          amount: UInt64.from(initialFundTokenAmount),
         })
       );
     },
@@ -370,9 +414,6 @@ describe('TokenContract E2E testing', () => {
       const exchangeTokenAmount = 300n;
       const minaToSpend = BigInt(3 * MINA);
       console.log('exchange tokens by mina...');
-      await ctx.getAccount(tokenContractAddress);
-      await ctx.getAccount(feePayerAddress);
-      await ctx.getAccount(callerCAddress, tokenId);
       let tx = await Mina.transaction(
         {
           sender: feePayerAddress,
@@ -402,11 +443,10 @@ describe('TokenContract E2E testing', () => {
       );
 
       //------------set time-locked vault-----------------------
-      await ctx.getAccount(tokenContractAddress);
       let globalSlotSinceGenesis = (await ctx.getNetworkStatus())
         .globalSlotSinceGenesis;
       let amountToLock = UInt64.from(minaToSpend);
-      let cliffTime = globalSlotSinceGenesis.add(3); // lock 3 slots
+      let cliffTime = globalSlotSinceGenesis.add(20); // lock 20 slots
       let adminSign = Signature.create(
         tokenContractKey,
         amountToLock.toFields().concat(cliffTime.toFields())
@@ -439,22 +479,27 @@ describe('TokenContract E2E testing', () => {
 
       //------------update delegate-----------------------
       // When the permission is Permissions.proof(), directly using the signature to update the delegate should fail
-      let tx3 = await Mina.transaction(
-        {
-          sender: feePayerAddress,
-          fee: ctx.txFee,
-          memo: 'update delegate',
-        },
-        () => {
-          tokenContract.account.delegate.set(callerAAddress);
-        }
-      );
-      await ctx.submitTx(tx3, {
-        feePayerKey,
-        contractKeys: [tokenContractKey],
-        otherSignKeys: [tokenContractKey],
-        logLabel: 'use signature to update delegate',
-      });
+      try {
+        let tx3 = await Mina.transaction(
+          {
+            sender: feePayerAddress,
+            fee: ctx.txFee,
+            memo: 'update delegate',
+          },
+          () => {
+            AccountUpdate.attachToTransaction(tokenContract.self);
+            tokenContract.account.delegate.set(callerAAddress);
+          }
+        );
+        await ctx.submitTx(tx3, {
+          feePayerKey,
+          contractKeys: [tokenContractKey],
+          otherSignKeys: [tokenContractKey],
+          logLabel: 'use signature to update delegate',
+        });
+      } catch (err) {
+        console.log('As Expected, updating delegate should fail: ', err);
+      }
       tokenContractAccount = await ctx.getAccount(tokenContractAddress);
       // If the delegate of the contract is still itself, it means that the update failed
       expect(tokenContractAccount.delegate).toEqual(tokenContractAddress);
