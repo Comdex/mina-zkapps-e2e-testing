@@ -21,7 +21,7 @@
     "prepare": "husky install",
     "test": "node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js",
     "test:berkeley": "cross-env TEST_ON_BERKELEY=true npm run test",
-    "test:ci": "./run-jest-tests-ci.sh",
+    "test:ci": "bash ./run-jest-tests-ci.sh",
     "testw": "node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --watch",
     "lint": "npx eslint src/* --fix",
     "test:token": "cross-env TEST_ON_BERKELEY=true node --stack-trace-limit=1000 --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --findRelatedTests src/token/token_contract.test.ts",
