@@ -27,6 +27,7 @@ Call the transfer method of the token zkApp to charge the token fee
 ### Runtime
 
 berkeley: about 120 mins
+
 local: about 35 mins
 
 ### Public Key and verification key - Berkeley Deployment
@@ -66,6 +67,7 @@ This is a simple custom token zkApp, which supports the basic features of mintin
 ### Runtime
 
 berkeley: about 110 mins
+
 local: about 20 mins
 
 ### Public Key and verification key - Berkeley Deployment
